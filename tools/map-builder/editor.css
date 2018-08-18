@@ -1,0 +1,17 @@
+.Editor-forms {
+  flex: 1;
+}
+
+.Editor-view {
+  flex: 1;
+}
+
+.Editor {
+  display: flex;
+}
+
+.Editor-canvas {
+  position: absolute;
+  left: 0;
+  top: 0;
+}

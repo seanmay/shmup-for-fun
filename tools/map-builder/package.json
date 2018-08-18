@@ -1,0 +1,12 @@
+{
+  "name": "none",
+  "private": true,
+  "dependencies": {
+    "react": "16.4.2",
+    "react-dom": "^16.4.2"
+  },
+  "devDependencies": {
+    "parcel": "1.9.7",
+    "postcss-modules": "^1.3.2"
+  }
+}

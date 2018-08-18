@@ -1,0 +1,192 @@
+<!doctype html>
+
+<html>
+
+<head>
+  <style>
+    canvas {
+      image-rendering: pixelated;
+    }
+
+    .view-container {
+      position: relative;
+    }
+
+    #grid {
+      position: absolute;
+      left: 0;
+      top: 0;
+    }
+  </style>
+  <script type="module">
+    const imageCanvas = document.querySelector("#image");
+    const imageContext = imageCanvas.getContext("2d");
+    imageContext.imageSmoothingEnabled = false;
+
+    const gridCanvas = document.querySelector("#grid");
+    const gridContext = gridCanvas.getContext("2d");
+
+
+    const previewCanvas = document.querySelector("#preview");
+    const previewContext = previewCanvas.getContext("2d");
+    previewContext.imageSmoothingEnabled = false;
+
+    const fileName = document.querySelector("#download-name");
+    fileName.onchange = e => {
+      const name = e.target.value || "";
+      downloadLink.download = `${name}.png`;
+    };
+    const downloadLink = document.querySelector("#download");
+    
+    let previewArea = {
+      x: 0,
+      y: 0,
+      width: 24,
+      height: 28,
+      alpha: `191,220,191,255`,
+      defaultAlpha: `191,220,191,255`
+    };
+
+    const select = document.querySelector("select");
+    const updateAlpha = document.querySelector("#update-alpha");
+    const alphahex = `#${previewArea.defaultAlpha.split(",").slice(0, 3).map(n => parseInt(n).toString(16)).join("")}`;
+    console.log(alphahex);
+    updateAlpha.value = alphahex;
+
+    updateAlpha.onchange = (e) => {
+      const input = e.target.value.substr(1);
+      const r = parseInt(input.substr(0, 2), 16);
+      const g = parseInt(input.substr(2, 2), 16);
+      const b = parseInt(input.substr(4, 2), 16);
+
+      console.log(e.target.value);
+      console.log(input);
+      console.log(r, g, b);
+
+      const alpha = `${r},${g},${b},255`;
+      console.log(alpha);
+      previewArea.alpha = alpha;
+      updatePreview(previewArea);
+    };
+
+
+    const updatePreview = (area) => {
+      previewCanvas.width = 24 * 3;
+      previewCanvas.height = 28 * 3;
+
+      const imageData = imageContext.getImageData(area.x, area.y, 24, 28);
+
+      for (let i = 0; i < imageData.data.length; i += 4) {
+        const r = imageData.data[i + 0];
+        const g = imageData.data[i + 1];
+        const b = imageData.data[i + 2];
+        const a = imageData.data[i + 3];
+
+        const sample = `${r},${g},${b},${a}`;
+        const colour = sample === area.alpha ? `0,0,0,0` : `${r},${g},${b},${a}`;
+
+        const rawX = (i / 4) % 24;
+        const rawY = Math.floor((i / 4) / 24);
+        const rectColour = `rgba(${colour})`;
+
+        previewContext.save();
+        previewContext.fillStyle = rectColour;
+        previewContext.fillRect(rawX * 3, rawY * 3, 3, 3);
+        previewContext.restore();
+
+        previewCanvas.toBlob(blob => {
+          downloadLink.href = URL.createObjectURL(blob);
+        });
+      }
+    };
+
+    gridCanvas.addEventListener("click", (e) => {
+      const rect = gridCanvas.getBoundingClientRect();
+      const x = e.x - rect.left;
+      const y = e.y - rect.top;
+
+      const sx = x - x % 24;
+      const sy = y - y % 28;
+
+      previewArea.x = sx;
+      previewArea.y = sy;
+
+      updatePreview(previewArea);
+    });
+
+    select.onchange = () => {
+      if (!select.value) {
+        console.log("Nothing selected.");
+      } else {
+        console.log("Loading ", select.value);
+        const path = encodeURIComponent(select.value);
+        loadImage(path)
+          .then(image => {
+            imageCanvas.width = image.width;
+            imageCanvas.height = image.height;
+            gridCanvas.width = image.width;
+            gridCanvas.height = image.height;
+            imageContext.drawImage(image, 0, 0, image.width, image.height);
+            drawGrid(24, 28);
+          });
+      }
+    };
+
+    const drawGrid = (width, height) => {
+      gridContext.save();
+      gridContext.strokeStyle = "purple";
+      gridContext.beginPath();
+      for (let i = width; i < gridCanvas.width; i += width) {
+        gridContext.moveTo(i, 0);
+        gridContext.lineTo(i, gridCanvas.height);
+      }
+      gridContext.stroke();
+      gridContext.beginPath();
+      for (let j = height; j < gridCanvas.height; j += height) {
+        gridContext.moveTo(0, j);
+        gridContext.lineTo(gridCanvas.width, j);
+      }
+      gridContext.stroke();
+      gridContext.restore();
+    }
+
+    const loadImage = src => new Promise((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => resolve(image);
+      image.onerror = reject;
+      image.src = src;
+    });
+
+    fetch("./spritesheets.json")
+      .then(res => res.json())
+      .then(files => files.forEach(file => {
+        const option = new Option(file.name, file.url);
+        select.appendChild(option);
+      }))
+      .then(() => { });
+
+  </script>
+</head>
+
+<body style="display: flex">
+  <div style="flex: 1">
+    <select></select>
+  </div>
+  <div class="view-container" style="flex: 1">
+    <canvas id="image"></canvas>
+    <canvas id="grid"></canvas>
+  </div>
+  <div class="preview-container" style="flex:1">
+    <div>
+      <label>erase alpha<input id="update-alpha" type="color"></label>
+    </div>
+    <canvas id="preview"></canvas>
+    <div>
+      <label>name: <input id="download-name" type="text"></label>
+      <br>
+      <a id="download" download="" href="">Download</a>
+    </div>
+  </div>
+</body>
+
+</html>
