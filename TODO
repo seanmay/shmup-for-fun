@@ -1,0 +1,20 @@
+
+Editor:
+  [] Determine interface for gameplay map's visuals and metadata
+  [] Allow creation of map visuals
+  [] Decide on method for allowing parallax (tiles and layers versus polygons on 3D z-axis)
+  [] Determine interface for gameplay events and triggers
+  [] Allow creation and editing of events and triggers
+
+
+Map Renderer:
+  [] Declare screen size (in game "units"... Metres) AT Player Altitude
+  [] Declare elevation of each layer
+  [] Declare camera elevation
+
+Each layer's scale and movement-speed, and the ships' scale are now functions
+of the z-axis in relation to the 1.0x focal distance of the camera
+
+Menus & Management Screens:
+  [] Implement React Portal
+  [] Inject React

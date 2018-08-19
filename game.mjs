@@ -7,39 +7,15 @@ import { loadImageAssets } from "./lib/assets/image.loader.mjs";
 import { loadAudioAssets } from "./lib/assets/audio.loader.mjs";
 
 import { Ship } from "./game/entities/player-ship.mjs";
+import { ShipCommands } from "./game/behaviors/player-ship.behavior.mjs";
+import { GameMap } from "./game/entities/game-map.mjs";
 
-// TODO: this is terrible; these should be messages to queue and process
-const ShipCommands = {
-  MoveLeft: (ship, state, timer) => {
-    ship.direction.x = Math.max(ship.direction.x - 1, -1);
-  },
-  MoveRight: (ship, state, timer) => {
-    ship.direction.x = Math.min(ship.direction.x + 1, +1);
-  },
-  MoveUp: (ship, state, timer) => {
-    ship.direction.y = Math.max(ship.direction.y - 1, -1);
-  },
-  MoveDown: (ship, state, timer) => {
-    ship.direction.y = Math.min(ship.direction.y + 1, +1);
-  },
-  FirePrimary: (ship, state, timer) => {
-    const weapon = ship.weapons.primary;
-    if (timer.time - weapon.lastFired >= 1000 / weapon.rateOfFire) {
-      // TODO: Entity Factory
-      const bullets = weapon.spawn(
-        { x: ship.position.x, y: ship.position.y - ship.shape.height / 2 },
-        { x: 0, y: -1 },
-        ship.id
-      );
-      state.bullets.push(...bullets);
-      weapon.lastFired = timer.time;
-      state.soundQueue.push(weapon.sound);
-    }
-  },
-  FireSecondary: (ship, state, timer) => {}
-};
 
 const update = (game, timer, keyboard) => {
+  game.map.dimensions.player_elevation =
+    Math.max(game.map.dimensions.player_elevation - 20, game.map.layers[0].elevation + 1);
+  game.map.position.y += (game.map.speed / 1000) * timer.tickrate;
+
   const ship = game.ship;
   ship.direction.x = 0;
   ship.direction.y = 0;
@@ -63,17 +39,20 @@ const update = (game, timer, keyboard) => {
 };
 
 const spriteAssets = {
-  ship: "./assets/sprites/ship.png"
+  ship: "./assets/sprites/tyrian/sprites/ships/ships.maelstorm.idle.png"
 };
 
-const textureAssets = {};
+const textureAssets = {
+  "map-01-0": "./assets/maps/map-01-0.png",
+  "map-01-1": "./assets/maps/map-01-1.png",
+};
 
 const soundAssets = {
   pew: "./assets/sounds/pew.mp3"
 };
 
 const soundtrackAssets = {
-  "soundtrack.IronHorse": "./assets/soundtrack/Iron Horse.mp3"
+  "soundtrack.IronHorse": "./assets/soundtrack/purple-planet/Iron Horse.mp3"
 };
 
 const render = (video, audio, game, timer) => {
@@ -84,6 +63,25 @@ const render = (video, audio, game, timer) => {
 
   const screenScale = video.canvas.width / game.map.dimensions.width;
 
+  game.map.layers.filter(layer => layer.elevation < game.map.dimensions.player_elevation).forEach(layer => {
+    const asset = game.assets.textures[layer.asset].data;
+    video.save();
+    const dx = 0;
+    const dy = 0;
+    const dw = video.canvas.width;
+    const dh = video.canvas.height;
+    const aspect = dh / dw;
+    const scale = asset.width / video.canvas.width;
+    const cameraScale = layer.elevation / game.map.dimensions.player_elevation;
+    console.log(cameraScale);
+    const sx = 0;
+    const sy = asset.height - dh - (game.map.position.y * cameraScale);
+    const sw = asset.width * (1/cameraScale);
+    const sh = asset.width * (1/cameraScale) * aspect;
+    // TODO: Add in scaling, and camera-shifting; cast back to dx/dy, instead of on sampling sizes
+    video.drawImage(asset, sx, sy, sw, sh, dx, dy, dw, dh );
+    video.restore();
+  });
 
   game.bullets.forEach(bullet => {
     const { x, y } = bullet.position;
@@ -103,8 +101,28 @@ const render = (video, audio, game, timer) => {
     (game.ship.position.x - game.ship.sprite.width / 2) * screenScale,
     (game.ship.position.y - game.ship.sprite.height / 2) * screenScale + video.canvas.height - game.ship.sprite.height * screenScale,
     game.ship.sprite.width * screenScale,
-    game.ship.sprite.height * screenScale
+    game.ship.sprite.height * screenScale,
   );
+
+  game.map.layers.filter(layer => layer.elevation > game.map.dimensions.player_elevation).forEach(layer => {
+    const asset = game.assets.textures[layer.asset].data;
+    video.save();
+    const dx = 0;
+    const dy = 0;
+    const dw = video.canvas.width;
+    const dh = video.canvas.height;
+    const aspect = dh / dw;
+    const cameraScale = layer.elevation / game.map.dimensions.camera_elevation;
+    console.log(cameraScale);
+    const sx = 0;
+    const sy = asset.height - dh - (game.map.position.y * cameraScale);
+    const sw = asset.width * (1/cameraScale);
+    const sh = asset.width * (1/cameraScale) * aspect;
+
+    // TODO: Add in scaling, and camera-shifting
+    video.drawImage(asset, sx, sy, sw, sh, dx, dy, dw, dh );
+    video.restore();
+  });
 
   game.soundQueue.forEach(asset => {
     // TODO: Audio Player with channel pooling?
@@ -167,14 +185,16 @@ export const Game = () => {
       entity => entity.type === "PLAYER_SPAWN"
     );
     const ship = Ship({ ...spawn.position });
-    console.log(ship);
     const bullets = [];
     const soundQueue = [mapdata.soundtrack];
     const state = {
       ship,
       bullets,
       soundQueue,
-      map: mapdata,
+      // TODO: localize all of the updating to inside of the level,
+      // to allow easy persisting on save in-level, as well as separation on win/loss
+      // for external scenes
+      map: GameMap(mapdata),
       assets: {
         sprites,
         textures,

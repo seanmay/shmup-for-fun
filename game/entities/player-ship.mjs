@@ -27,6 +27,7 @@ export const Ship = (position = { x: 0, y: 0 }) => ({
   },
   sprite: {
     asset: "ship",
+    // TODO: make this relevant to, and relative to dimensionality
     width: 21,
     height: 27
   },
